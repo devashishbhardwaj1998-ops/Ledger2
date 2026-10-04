@@ -78,7 +78,8 @@ export const DiscrepancyReport: React.FC<DiscrepancyReportProps> = ({ report }) 
         const matchesAsset = f.asset.toLowerCase().includes(q);
         const matchesAnalyst = f.analyst.toLowerCase().includes(q);
         const matchesNote = f.note.toLowerCase().includes(q);
-        if (!matchesAsset && !matchesAnalyst && !matchesNote) return false;
+        const matchesCountry = (f.country || '').toLowerCase().includes(q);
+        if (!matchesAsset && !matchesAnalyst && !matchesNote && !matchesCountry) return false;
       }
       return true;
     });
@@ -94,7 +95,8 @@ export const DiscrepancyReport: React.FC<DiscrepancyReportProps> = ({ report }) 
         const q = searchTerm.toLowerCase().trim();
         const matchesAsset = c.asset.toLowerCase().includes(q);
         const matchesAnalyst = c.analyst.toLowerCase().includes(q);
-        if (!matchesAsset && !matchesAnalyst) return false;
+        const matchesCountry = (c.country || '').toLowerCase().includes(q);
+        if (!matchesAsset && !matchesAnalyst && !matchesCountry) return false;
       }
       return true;
     });
@@ -129,6 +131,15 @@ export const DiscrepancyReport: React.FC<DiscrepancyReportProps> = ({ report }) 
               <span className="font-bold text-[var(--brass)] bg-[var(--brass-light)] border border-[var(--brass-border)] px-2 py-0.5 text-[11px]">
                 {report.selectedRegion || 'All Regions'}
               </span>
+              {report.targetCountryCodes && report.targetCountryCodes.length > 0 && (
+                <>
+                  <span className="text-[var(--text-muted)]">&bull;</span>
+                  <span>Col C Country:</span>
+                  <span className="font-bold text-[var(--ink)] bg-[var(--card-subtle)] border border-[var(--rule)] px-1.5 py-0.5 text-[11px] font-mono">
+                    {report.targetCountryCodes.join(', ')}
+                  </span>
+                </>
+              )}
               <span className="text-[var(--text-muted)]">&bull;</span>
               <span>
                 Week: <strong className="text-[var(--ink)] font-bold">{report.selectedWeek ? `Week ${report.selectedWeek}` : 'Selected Week'}</strong>
@@ -139,8 +150,15 @@ export const DiscrepancyReport: React.FC<DiscrepancyReportProps> = ({ report }) 
             <div>
               Data Pull Sheet: <span className="font-semibold text-[var(--ink)]">{report.empFile}</span> &mdash; Daily Planning Sheet: <span className="font-semibold text-[var(--ink)]">{report.erFile}</span>
             </div>
-            <div>
-              Date range: <strong className="text-[var(--ink)]">{formatDateDDMMYYYY(report.windowStart)}</strong> through <strong className="text-[var(--ink)]">{formatDateDDMMYYYY(report.windowEnd)}</strong>
+            <div className="flex items-center gap-3 flex-wrap">
+              <span>
+                Date range: <strong className="text-[var(--ink)]">{formatDateDDMMYYYY(report.windowStart)}</strong> through <strong className="text-[var(--ink)]">{formatDateDDMMYYYY(report.windowEnd)}</strong>
+              </span>
+              {report.excludedCountDueToCountry > 0 && (
+                <span className="text-[11px] text-[var(--brass)] font-semibold">
+                  • {report.excludedCountDueToCountry} non-matching Data Pull Sheet row{report.excludedCountDueToCountry > 1 ? 's were' : ' was'} excluded based on Column C
+                </span>
+              )}
             </div>
             <div className="text-[10.5px] text-[var(--text-subtle)] pt-0.5">
               Audit Executed: {report.runAt}
@@ -460,6 +478,7 @@ export const DiscrepancyReport: React.FC<DiscrepancyReportProps> = ({ report }) 
             <thead>
               <tr className="border-b border-[var(--card-border)] bg-[var(--table-header-bg)] text-[10.5px] uppercase tracking-wider text-[var(--text-muted)]">
                 <th className="p-3 font-bold">Analyst</th>
+                <th className="p-3 font-bold">Country</th>
                 <th className="p-3 font-bold">Asset Name</th>
                 <th className="p-3 font-bold">Date</th>
                 <th className="p-3 font-bold">Daily Planning Sheet</th>
@@ -487,6 +506,11 @@ export const DiscrepancyReport: React.FC<DiscrepancyReportProps> = ({ report }) 
                         title="Click to filter to this analyst"
                       >
                         {f.analyst}
+                      </span>
+                    </td>
+                    <td className="p-3 whitespace-nowrap">
+                      <span className="font-mono text-[11px] font-bold bg-[var(--card-subtle)] text-[var(--ink)] border border-[var(--rule)] px-1.5 py-0.5">
+                        {f.country || (report.targetCountryCodes?.length ? report.targetCountryCodes.join('/') : '—')}
                       </span>
                     </td>
                     <td className="p-3 font-sans font-semibold text-[13px] text-[var(--ink)] max-w-xs">

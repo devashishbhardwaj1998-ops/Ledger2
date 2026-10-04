@@ -1,12 +1,13 @@
 import React, { useRef, useState } from 'react';
-import { UploadCloud, CheckCircle2, FileText, Link, Sparkles, X, RefreshCw } from 'lucide-react';
-import { RawEmployeeRow, RawEmployerRow } from '../types';
+import { UploadCloud, CheckCircle2, FileText, Link, Sparkles, X, RefreshCw, Globe, ChevronDown, Layers } from 'lucide-react';
+import { RawEmployeeRow, RawEmployerRow, SUPPORTED_REGIONS } from '../types';
 import {
   readSheet,
   normalizeEmployeeRows,
   normalizeEmployerRows,
   extractSheetInfo,
-  parseCSV
+  parseCSV,
+  detectRegionFromContext
 } from '../utils/parser';
 import { getSampleDataPullSheet, getSampleEmployerPlanningSheet } from '../utils/sampleData';
 
@@ -38,6 +39,15 @@ export const IntakeSlots: React.FC<IntakeSlotsProps> = ({
     type: 'idle'
   });
 
+  // State for workbook tabs & regional controls on Exhibit B
+  const [rawFileB, setRawFileB] = useState<File | null>(null);
+  const [availableSheetsB, setAvailableSheetsB] = useState<string[]>([]);
+  const [activeSheetNameB, setActiveSheetNameB] = useState<string>('');
+  const [employerRegionOverride, setEmployerRegionOverride] = useState<string>('auto');
+  const [detectedRegion, setDetectedRegion] = useState<string | null>(null);
+  const [lastEmployerAoa, setLastEmployerAoa] = useState<(string | number)[][] | null>(null);
+  const [lastEmployerName, setLastEmployerName] = useState<string>('');
+
   const fileInputARef = useRef<HTMLInputElement>(null);
   const fileInputBRef = useRef<HTMLInputElement>(null);
 
@@ -52,14 +62,34 @@ export const IntakeSlots: React.FC<IntakeSlotsProps> = ({
     }
   };
 
-  const handleProcessFileB = async (file: File) => {
+  const handleProcessFileB = async (
+    file: File,
+    specificTab?: string,
+    regionOverrideVal?: string
+  ) => {
     try {
-      const { aoa, sheetName } = await readSheet(file, 'content');
-      const rows = normalizeEmployerRows(aoa);
-      const sizeText = `Tab: "${sheetName}" • ${(Math.round(file.size / 102.4) / 10).toFixed(1)} KB • ${rows.length} rows`;
+      const regSetting = regionOverrideVal ?? employerRegionOverride;
+      const { aoa, sheetName, availableSheets } = await readSheet(file, 'content', specificTab);
+      const detected = detectRegionFromContext(aoa, sheetName, file.name);
+      setDetectedRegion(detected);
+
+      const rows = normalizeEmployerRows(aoa, {
+        fileName: file.name,
+        sheetName,
+        defaultRegion: regSetting !== 'auto' ? regSetting : undefined
+      });
+
+      setRawFileB(file);
+      setAvailableSheetsB(availableSheets);
+      setActiveSheetNameB(sheetName);
+      setLastEmployerAoa(aoa);
+      setLastEmployerName(file.name);
+
+      const effectiveReg = regSetting !== 'auto' ? regSetting : detected ? `${detected} (auto)` : 'Per-row / Mixed';
+      const sizeText = `Tab: "${sheetName}" • ${effectiveReg} • ${rows.length} rows`;
       onEmployerLoaded({ name: file.name, sizeText }, rows);
       setGsheetStatus({
-        text: `Using "${sheetName}" tab from ${file.name}.`,
+        text: `Using "${sheetName}" tab from ${file.name} (Region: ${effectiveReg}).`,
         type: 'ok'
       });
     } catch (err: any) {
@@ -67,7 +97,32 @@ export const IntakeSlots: React.FC<IntakeSlotsProps> = ({
     }
   };
 
-  const handleLoadGoogleSheet = async () => {
+  const handleSwitchTab = async (tabName: string) => {
+    if (!rawFileB) return;
+    await handleProcessFileB(rawFileB, tabName);
+  };
+
+  const handleRegionChange = (newRegion: string) => {
+    setEmployerRegionOverride(newRegion);
+    if (!lastEmployerAoa) return;
+
+    try {
+      const rows = normalizeEmployerRows(lastEmployerAoa, {
+        fileName: lastEmployerName,
+        sheetName: activeSheetNameB,
+        defaultRegion: newRegion !== 'auto' ? newRegion : undefined
+      });
+      const effectiveReg = newRegion !== 'auto' ? newRegion : detectedRegion ? `${detectedRegion} (auto)` : 'Per-row / Mixed';
+      const sizeText = activeSheetNameB
+        ? `Tab: "${activeSheetNameB}" • ${effectiveReg} • ${rows.length} rows`
+        : `${effectiveReg} • ${rows.length} rows`;
+      onEmployerLoaded({ name: lastEmployerName, sizeText }, rows);
+    } catch (err: any) {
+      onError(`Failed to re-assign region: ${err.message}`);
+    }
+  };
+
+  const handleLoadGoogleSheet = async (regionOverrideVal?: string) => {
     const url = gsheetUrl.trim();
     if (!url) {
       setGsheetStatus({ text: 'Paste a Google Sheet link first.', type: 'err' });
@@ -100,15 +155,33 @@ export const IntakeSlots: React.FC<IntakeSlotsProps> = ({
         );
       }
       const aoa = parseCSV(text);
-      const rows = normalizeEmployerRows(aoa);
+      const regSetting = regionOverrideVal ?? employerRegionOverride;
+      const detected = detectRegionFromContext(aoa, undefined, `Google Sheet gid ${info.gid}`);
+      setDetectedRegion(detected);
+
+      const rows = normalizeEmployerRows(aoa, {
+        fileName: `Google Sheet (${info.id.slice(0, 10)}…, gid ${info.gid})`,
+        defaultRegion: regSetting !== 'auto' ? regSetting : undefined
+      });
+
+      setRawFileB(null);
+      setAvailableSheetsB([]);
+      setActiveSheetNameB('');
+      setLastEmployerAoa(aoa);
+      setLastEmployerName(`Google Sheet (gid ${info.gid})`);
+
+      const effectiveReg = regSetting !== 'auto' ? regSetting : detected ? `${detected} (auto)` : 'Per-row / Mixed';
       onEmployerLoaded(
         {
           name: `Google Sheet (${info.id.slice(0, 10)}…, gid ${info.gid})`,
-          sizeText: `${rows.length} rows`
+          sizeText: `${effectiveReg} • ${rows.length} rows`
         },
         rows
       );
-      setGsheetStatus({ text: `Successfully loaded ${rows.length} rows from Google Sheet.`, type: 'ok' });
+      setGsheetStatus({
+        text: `Loaded ${rows.length} rows from Google Sheet (${effectiveReg}).`,
+        type: 'ok'
+      });
     } catch (err: any) {
       let msg = err.message;
       if (err instanceof TypeError) {
@@ -120,6 +193,18 @@ export const IntakeSlots: React.FC<IntakeSlotsProps> = ({
     } finally {
       setGsheetLoading(false);
     }
+  };
+
+  const clearEmployerState = () => {
+    onClearEmployer();
+    setRawFileB(null);
+    setAvailableSheetsB([]);
+    setActiveSheetNameB('');
+    setLastEmployerAoa(null);
+    setLastEmployerName('');
+    setDetectedRegion(null);
+    setEmployerRegionOverride('auto');
+    if (fileInputBRef.current) fileInputBRef.current.value = '';
   };
 
   return (
@@ -241,7 +326,7 @@ export const IntakeSlots: React.FC<IntakeSlotsProps> = ({
               <button
                 type="button"
                 disabled={gsheetLoading}
-                onClick={handleLoadGoogleSheet}
+                onClick={() => handleLoadGoogleSheet()}
                 className="font-mono text-[11px] font-bold tracking-wider uppercase bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)] hover:bg-[var(--btn-primary-hover)] px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0 flex items-center gap-1.5 cursor-pointer shadow-2xs"
               >
                 {gsheetLoading && <RefreshCw className="w-3 h-3 animate-spin" />}
@@ -305,8 +390,7 @@ export const IntakeSlots: React.FC<IntakeSlotsProps> = ({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onClearEmployer();
-                      if (fileInputBRef.current) fileInputBRef.current.value = '';
+                      clearEmployerState();
                     }}
                     className="p-1 text-[var(--text-subtle)] hover:text-[var(--flag)] cursor-pointer"
                     title="Remove file"
@@ -330,6 +414,55 @@ export const IntakeSlots: React.FC<IntakeSlotsProps> = ({
                 if (e.target.files?.[0]) handleProcessFileB(e.target.files[0]);
               }}
             />
+
+            {/* Exhibit B Options: Multi-Tab Selector & Regional Scope Assignment */}
+            {employerFile && (
+              <div className="mt-3 pt-3 border-t border-[var(--rule)] space-y-2.5 bg-[var(--paper-card)] p-3 border border-[var(--rule)]">
+                {/* Workbook Tab selector if workbook has multiple sheets */}
+                {availableSheetsB.length > 1 && (
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="font-mono text-[10.5px] uppercase tracking-wider text-[var(--text-muted)] font-semibold flex items-center gap-1.5 shrink-0">
+                      <Layers className="w-3 h-3 text-[var(--brass)]" />
+                      <span>Workbook Tab:</span>
+                    </label>
+                    <select
+                      value={activeSheetNameB}
+                      onChange={(e) => handleSwitchTab(e.target.value)}
+                      className="bg-[var(--input-bg)] border border-[var(--input-border)] text-[var(--ink)] font-mono text-[11.5px] px-2 py-1 focus:outline-none focus:border-[var(--brass)] cursor-pointer"
+                    >
+                      {availableSheetsB.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Region Override / Confirmation */}
+                <div className="flex items-center justify-between gap-2">
+                  <label className="font-mono text-[10.5px] uppercase tracking-wider text-[var(--text-muted)] font-semibold flex items-center gap-1.5 shrink-0">
+                    <Globe className="w-3 h-3 text-[var(--brass)]" />
+                    <span>Sheet Region:</span>
+                  </label>
+                  <select
+                    value={employerRegionOverride}
+                    onChange={(e) => handleRegionChange(e.target.value)}
+                    className="bg-[var(--input-bg)] border border-[var(--input-border)] text-[var(--ink)] font-mono text-[11.5px] px-2 py-1 font-semibold focus:outline-none focus:border-[var(--brass)] cursor-pointer"
+                  >
+                    <option value="auto">
+                      Auto-detect ({detectedRegion || 'Per-row / Mixed'})
+                    </option>
+                    {SUPPORTED_REGIONS.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                    <option value="mixed">Mixed (Use Geography Column)</option>
+                  </select>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="mt-3 pt-3 border-t border-[var(--rule)] flex items-center justify-between text-[11px] font-mono text-[var(--text-subtle)]">

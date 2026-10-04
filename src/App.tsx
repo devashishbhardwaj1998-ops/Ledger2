@@ -183,6 +183,28 @@ export default function App() {
                 setRangeEnd(weeks[0].endDate);
               }
             }
+
+            // AUTO-SELECT REGION: If the loaded planning sheet belongs predominantly to a specific region (e.g. Benelux), switch to it
+            const regCounts = new Map<string, number>();
+            rows.forEach((r) => {
+              if (r.region) {
+                regCounts.set(r.region, (regCounts.get(r.region) || 0) + 1);
+              }
+            });
+
+            if (regCounts.size > 0) {
+              let topRegion = '';
+              let maxCount = 0;
+              regCounts.forEach((count, reg) => {
+                if (count > maxCount) {
+                  maxCount = count;
+                  topRegion = reg;
+                }
+              });
+              if (topRegion) {
+                setSelectedRegion(topRegion);
+              }
+            }
           }}
           onClearEmployee={() => {
             setEmployeeFile(null);
@@ -220,6 +242,21 @@ export default function App() {
             }}
             employeeRows={employeeRows}
             employerRows={employerRows}
+            onAssignSheetRegion={(reg) => {
+              if (!employerRows) return;
+              const updated = employerRows.map((r) => ({
+                ...r,
+                region: reg
+              }));
+              setEmployerRows(updated);
+              setSelectedRegion(reg);
+              if (employerFile) {
+                setEmployerFile({
+                  ...employerFile,
+                  sizeText: `${reg} (assigned) • ${updated.length} rows`
+                });
+              }
+            }}
           />
         )}
 

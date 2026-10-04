@@ -1,5 +1,5 @@
 export const SUPPORTED_REGIONS = [
-  'The UK/US',
+  'The US/UK',
   'France',
   'DACH',
   'Benelux',
@@ -7,7 +7,19 @@ export const SUPPORTED_REGIONS = [
   'NORCEE'
 ] as const;
 
-export type RegionType = (typeof SUPPORTED_REGIONS)[number] | 'All Regions';
+export type RegionType = (typeof SUPPORTED_REGIONS)[number] | 'The UK/US' | 'All Regions';
+
+export const DEFAULT_REGION_COUNTRY_CODES: Record<string, string[]> = {
+  'The US/UK': ['US', 'GB'],
+  'The UK/US': ['US', 'GB'],
+  'France': ['FR'],
+  'DACH': ['DE', 'AT', 'CH'],
+  'Benelux': ['BE', 'NL', 'LU'],
+  'Southern Europe': ['ES', 'IT', 'PT', 'GR', 'CY', 'MT'],
+  'NORCEE': ['PL', 'CZ', 'SE', 'NO', 'DK', 'FI', 'EE', 'LV', 'LT', 'SK', 'HU', 'RO', 'BG']
+};
+
+export const REGION_COUNTRY_CODES = DEFAULT_REGION_COUNTRY_CODES;
 
 export interface RawEmployeeRow {
   name: string;
@@ -20,6 +32,7 @@ export interface RawEmployeeRow {
   date: string | null;
   minutes: number;
   type: string;
+  country?: string; // Column C: titled "Country"
 }
 
 export interface RawEmployerRow {
@@ -54,8 +67,10 @@ export interface WeekInfo {
 
 export interface RegionInfo {
   name: RegionType;
+  countryCodes: string[];
   analystCount: number;
   taskCount: number;
+  pullCount?: number;
 }
 
 export type NoteTagType = 'mismatch' | 'missing-employer' | 'missing-employee' | 'unmapped' | 'status-not-done';
@@ -64,6 +79,7 @@ export interface FlaggedTask {
   id: string;
   analyst: string;
   region?: string;
+  country?: string;
   asset: string;
   date: string | null;
   empSide: string;
@@ -77,6 +93,7 @@ export interface CleanTask {
   id: string;
   analyst: string;
   region?: string;
+  country?: string;
   asset: string;
   date: string | null;
   category: string;
@@ -99,6 +116,8 @@ export interface AnalystSummary {
 export interface AuditReportData {
   selectedWeek: string;
   selectedRegion: string;
+  targetCountryCodes: string[];
+  excludedCountDueToCountry: number;
   windowStart: string;
   windowEnd: string;
   analysts: AnalystSummary[];

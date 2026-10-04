@@ -7,7 +7,8 @@ import {
   AuditReportData,
   NoteTagMeta,
   AnalystSummary,
-  NoteTagType
+  NoteTagType,
+  DEFAULT_REGION_COUNTRY_CODES
 } from '../types';
 import {
   TYPE_MAP,
@@ -19,7 +20,8 @@ import {
   formatDateDDMMYYYY,
   weekStartKey,
   matchAnalyst,
-  mapGeographyToRegion
+  mapGeographyToRegion,
+  normalizeCountryCode
 } from './parser';
 
 export const NOTE_TAGS: NoteTagMeta[] = [
@@ -54,6 +56,7 @@ interface PreparedPullItem {
   id: string;
   analyst: string;
   region?: string;
+  country?: string;
   assetName: string;
   assetKey: string;
   date: string | null;
@@ -67,6 +70,7 @@ interface PreparedPlanItem {
   id: string;
   analyst: string;
   region?: string;
+  country?: string;
   assetName: string;
   assetKey: string;
   date: string | null;
@@ -80,12 +84,13 @@ export function runInvestigation(
   employeeRows: RawEmployeeRow[],
   employerRows: RawEmployerRow[],
   selectedWeekId: string = '',
-  selectedRegion: string = 'All Regions',
+  selectedRegion: string = 'The US/UK',
   windowStart: string = '',
   windowEnd: string = '',
   empFileName: string = 'Data Pull Sheet',
   erFileName: string = 'Daily Planning Sheet',
-  specificAnalystName?: string
+  specificAnalystName?: string,
+  customRegionCountryCodes?: Record<string, string[]>
 ): AuditReportData {
   if (!employeeRows || !employeeRows.length) {
     throw new Error('Data Pull Sheet contains no rows');
@@ -96,6 +101,18 @@ export function runInvestigation(
 
   const isAllRegions =
     !selectedRegion || selectedRegion === 'all' || selectedRegion === 'All Regions';
+
+  // Normalize region name (e.g. 'The UK/US' <=> 'The US/UK')
+  const canonicalRegion = selectedRegion === 'The UK/US' ? 'The US/UK' : selectedRegion;
+
+  const activeCodesMap: Record<string, string[]> = {
+    ...DEFAULT_REGION_COUNTRY_CODES,
+    ...customRegionCountryCodes
+  };
+
+  const targetCountryCodes: string[] = isAllRegions
+    ? []
+    : (activeCodesMap[canonicalRegion] || activeCodesMap[selectedRegion] || []);
 
   // 1. Determine Scope for Employer (Daily Planning) Rows by Week
   let planRowsInScope = employerRows.filter((r) => Boolean(r.assetName && r.assetName.trim()));
@@ -129,12 +146,13 @@ export function runInvestigation(
     const name = r.employee.trim();
     const reg = r.region || mapGeographyToRegion(r.geography);
     if (!reg) return;
+    const normReg = reg === 'The UK/US' ? 'The US/UK' : reg;
 
     if (!analystRegionCounts.has(name)) {
       analystRegionCounts.set(name, new Map());
     }
     const counts = analystRegionCounts.get(name)!;
-    counts.set(reg, (counts.get(reg) || 0) + 1);
+    counts.set(normReg, (counts.get(normReg) || 0) + 1);
   });
 
   const analystPrimaryRegion = new Map<string, string>();
@@ -148,7 +166,7 @@ export function runInvestigation(
         maxC = c;
         topReg = reg;
       }
-      if (!isAllRegions && reg === selectedRegion) {
+      if (!isAllRegions && reg === canonicalRegion) {
         regionAnalystsSet.add(name);
       }
     });
@@ -159,9 +177,10 @@ export function runInvestigation(
   if (!isAllRegions) {
     planRowsInScope = planRowsInScope.filter((r) => {
       const taskReg = r.region || mapGeographyToRegion(r.geography);
-      if (taskReg === selectedRegion) return true;
+      const normTaskReg = taskReg === 'The UK/US' ? 'The US/UK' : taskReg;
+      if (normTaskReg === canonicalRegion) return true;
       // If task has no geography specified, check if analyst belongs to this region
-      if (!taskReg && r.employee && regionAnalystsSet.has(r.employee.trim())) {
+      if (!normTaskReg && r.employee && regionAnalystsSet.has(r.employee.trim())) {
         return true;
       }
       return false;
@@ -169,6 +188,10 @@ export function runInvestigation(
   }
 
   // 3. Determine Scope for Employee (Data Pull / Timesheet) Rows
+  // Requirement 3 & Clarification 2:
+  // "Now only compare the items in the Data Pull Sheet with these associated country code (e.g. US, GB, DE, AT, CH, FR etc) for the selected region"
+  // "2. exclude"
+  // "3. no you will take these countries from column c of the data pull sheet when i select a region from Select Region to Audit option on the tool"
   const timesheetWeeks = new Set<string>();
   planRowsInScope.forEach((r) => {
     if (r.date) {
@@ -177,11 +200,22 @@ export function runInvestigation(
     }
   });
 
+  let excludedCountDueToCountry = 0;
+
   let empRowsInScope = employeeRows.filter((r) => {
     // Category check
     const rawType = r.type.replace(/[^a-z0-9]/gi, '').toLowerCase();
     const isTracked = normalizeTrackedCategory(r.type) !== null || TRACKED_TYPES.has(rawType);
     if (!isTracked) return false;
+
+    // Filter strictly by Column C Country Code for selected region
+    if (!isAllRegions && targetCountryCodes.length > 0) {
+      const rowCountry = r.country ? normalizeCountryCode(r.country) : '';
+      if (!rowCountry || !targetCountryCodes.includes(rowCountry)) {
+        excludedCountDueToCountry++;
+        return false;
+      }
+    }
 
     // Date check
     if (effectiveStart && effectiveEnd && r.date) {
@@ -189,19 +223,6 @@ export function runInvestigation(
         const wk = weekStartKey(r.date);
         if (!wk || !timesheetWeeks.has(wk)) return false;
       }
-    }
-
-    // Region check on analyst: If a region is selected, only check analysts of this region
-    if (!isAllRegions) {
-      const empName = r.name || '';
-      let matchesRegion = false;
-      for (const targetName of regionAnalystsSet) {
-        if (matchAnalyst(targetName, empName)) {
-          matchesRegion = true;
-          break;
-        }
-      }
-      if (!matchesRegion) return false;
     }
 
     return true;
@@ -235,7 +256,7 @@ export function runInvestigation(
         }
       }
       if (!existingKey) {
-        analystMap.set(key, { canonicalName: clean, nameKey: key, region: selectedRegion !== 'All Regions' ? selectedRegion : undefined });
+        analystMap.set(key, { canonicalName: clean, nameKey: key, region: canonicalRegion !== 'All Regions' ? canonicalRegion : undefined });
       }
     }
   });
@@ -282,11 +303,23 @@ export function runInvestigation(
       const revCat = resolveReviewCategory(r.review);
       const itemRegion = r.region || mapGeographyToRegion(r.geography) || region;
 
+      let itemCountry: string | undefined = undefined;
+      if (r.geography) {
+        const normG = normalizeCountryCode(r.geography);
+        if (normG && targetCountryCodes.includes(normG)) {
+          itemCountry = normG;
+        }
+      }
+      if (!itemCountry && targetCountryCodes.length === 1) {
+        itemCountry = targetCountryCodes[0];
+      }
+
       if (prodCat) {
         planItems.push({
           id: `plan-${nameKey}-prod-${idx + 1}`,
           analyst: canonicalName,
           region: itemRegion,
+          country: itemCountry,
           assetName: r.assetName,
           assetKey: r.assetKey || normAsset(r.assetName),
           date: r.date,
@@ -302,6 +335,7 @@ export function runInvestigation(
           id: `plan-${nameKey}-rev-${idx + 1}`,
           analyst: canonicalName,
           region: itemRegion,
+          country: itemCountry,
           assetName: r.assetName,
           assetKey: r.assetKey || normAsset(r.assetName),
           date: r.date,
@@ -323,7 +357,8 @@ export function runInvestigation(
       return {
         id: `pull-${nameKey}-${idx + 1}`,
         analyst: canonicalName,
-        region,
+        region: canonicalRegion,
+        country: r.country ? normalizeCountryCode(r.country) : undefined,
         assetName: r.assetName,
         assetKey: r.assetKey || normAsset(r.assetName),
         date: r.date,
@@ -358,6 +393,7 @@ export function runInvestigation(
           id: `flagged-${globalTaskCounter++}`,
           analyst: canonicalName,
           region: pull.region,
+          country: pull.country,
           asset: pull.assetName,
           date: pull.date,
           empSide: '—',
@@ -382,11 +418,13 @@ export function runInvestigation(
 
       if (cleanPlanMatch) {
         matchedPlanIds.add(cleanPlanMatch.id);
+        const resolvedCountry = pull.country || cleanPlanMatch.country;
         if (!cleanPlanMatch.isDone) {
           const flagItem: FlaggedTask = {
             id: `flagged-${globalTaskCounter++}`,
             analyst: canonicalName,
             region: cleanPlanMatch.region || pull.region,
+            country: resolvedCountry,
             asset: pull.assetName,
             date: pull.date || cleanPlanMatch.date,
             empSide: cleanPlanMatch.category,
@@ -403,6 +441,7 @@ export function runInvestigation(
             id: `clean-${globalTaskCounter++}`,
             analyst: canonicalName,
             region: cleanPlanMatch.region || pull.region,
+            country: resolvedCountry,
             asset: pull.assetName,
             date: pull.date || cleanPlanMatch.date,
             category: pull.category,
@@ -423,6 +462,7 @@ export function runInvestigation(
           id: `flagged-${globalTaskCounter++}`,
           analyst: canonicalName,
           region: sameAxisMismatch.region || pull.region,
+          country: pull.country || sameAxisMismatch.country,
           asset: pull.assetName,
           date: pull.date || sameAxisMismatch.date,
           empSide: sameAxisMismatch.category,
@@ -448,6 +488,7 @@ export function runInvestigation(
           id: `flagged-${globalTaskCounter++}`,
           analyst: canonicalName,
           region: generalMismatch.region || pull.region,
+          country: pull.country || generalMismatch.country,
           asset: pull.assetName,
           date: pull.date || generalMismatch.date,
           empSide: generalMismatch.category,
@@ -467,12 +508,13 @@ export function runInvestigation(
         id: `flagged-${globalTaskCounter++}`,
         analyst: canonicalName,
         region: pull.region,
+        country: pull.country,
         asset: pull.assetName,
         date: pull.date,
         empSide: '—',
         erSide: pull.rawType,
         minutes: pull.minutes,
-        note: `Logged in Data Pull Sheet; no matching entry found in Daily Planning Sheet for ${canonicalName}`,
+        note: `Logged in Data Pull Sheet (Country: ${pull.country || 'N/A'}); no matching entry found in Daily Planning Sheet for ${canonicalName}`,
         tag: 'missing-employer'
       };
       analystFlagged.push(flagItem);
@@ -487,12 +529,13 @@ export function runInvestigation(
           id: `flagged-${globalTaskCounter++}`,
           analyst: canonicalName,
           region: plan.region,
+          country: plan.country || (targetCountryCodes.length === 1 ? targetCountryCodes[0] : targetCountryCodes[0]),
           asset: plan.assetName,
           date: plan.date,
           empSide: plan.category,
           erSide: '—',
           minutes: 0,
-          note: `Selected "${plan.category}" in Daily Planning Sheet; no matching entry in Data Pull Sheet for ${canonicalName}`,
+          note: `Selected "${plan.category}" in Daily Planning Sheet; no matching entry found in Data Pull Sheet with country [${targetCountryCodes.join(', ')}] for ${canonicalName}`,
           tag: 'missing-employee'
         };
         analystFlagged.push(flagItem);
@@ -504,7 +547,7 @@ export function runInvestigation(
     analystSummaries.push({
       analystName: canonicalName,
       nameKey,
-      region: region || analystPrimaryRegion.get(canonicalName) || selectedRegion,
+      region: region || analystPrimaryRegion.get(canonicalName) || canonicalRegion,
       cleanCount: analystClean.length,
       flaggedCount: analystFlagged.length,
       flaggedMinutes: Math.round(analystFlaggedMinutes * 10) / 10,
@@ -542,7 +585,9 @@ export function runInvestigation(
 
   return {
     selectedWeek: selectedWeekId || 'All Weeks',
-    selectedRegion: selectedRegion || 'All Regions',
+    selectedRegion: canonicalRegion,
+    targetCountryCodes,
+    excludedCountDueToCountry,
     windowStart: effectiveStart,
     windowEnd: effectiveEnd,
     analysts: analystSummaries,
@@ -568,6 +613,7 @@ export function buildReportMatrix(
     [
       'Section',
       'Region',
+      'Country (Col C)',
       'Analyst',
       'Asset Name',
       'Date (DD-MM-YYYY)',
@@ -582,6 +628,7 @@ export function buildReportMatrix(
     rows.push([
       'Flagged',
       f.region || rep.selectedRegion,
+      f.country || (rep.targetCountryCodes && rep.targetCountryCodes.length ? rep.targetCountryCodes.join('/') : '—'),
       f.analyst,
       f.asset,
       formatDateDDMMYYYY(f.date),
@@ -596,6 +643,7 @@ export function buildReportMatrix(
     rows.push([
       'Matched Clean',
       c.region || rep.selectedRegion,
+      c.country || (rep.targetCountryCodes && rep.targetCountryCodes.length ? rep.targetCountryCodes.join('/') : '—'),
       c.analyst,
       c.asset,
       formatDateDDMMYYYY(c.date),
@@ -609,6 +657,8 @@ export function buildReportMatrix(
   rows.push([]);
   rows.push(['Summary Information']);
   rows.push(['Audit Region', rep.selectedRegion]);
+  rows.push(['Target Country Codes (Col C)', rep.targetCountryCodes && rep.targetCountryCodes.length ? rep.targetCountryCodes.join(', ') : 'All']);
+  rows.push(['Data Pull Rows Excluded (Non-matching Country)', rep.excludedCountDueToCountry || 0]);
   rows.push(['Week Identifier', rep.selectedWeek]);
   rows.push(['Total Analysts Audited', rep.analysts.length]);
   rows.push(['Data Pull Sheet', rep.empFile]);

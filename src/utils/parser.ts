@@ -406,7 +406,8 @@ export interface SheetReadResult {
 
 export function readSheet(
   file: File,
-  preferredSheetNameSubstr: string | null = null
+  preferredSheetNameSubstr: string | null = null,
+  specificSheetName?: string | null
 ): Promise<SheetReadResult> {
   const isCsv = /\.csv$/i.test(file.name);
 
@@ -445,7 +446,9 @@ export function readSheet(
 
         let sheetName = wb.SheetNames[0];
 
-        if (preferredSheetNameSubstr) {
+        if (specificSheetName && wb.SheetNames.includes(specificSheetName)) {
+          sheetName = specificSheetName;
+        } else if (preferredSheetNameSubstr) {
           const pref = preferredSheetNameSubstr.trim().toLowerCase();
 
           // 1. Exact match (case-insensitive, trimmed)
@@ -462,6 +465,12 @@ export function readSheet(
             );
             if (subHit) {
               sheetName = subHit;
+            } else {
+              // 3. Check if any sheet name contains a known region keyword (e.g. "Benelux")
+              const regionHit = wb.SheetNames.find((n) => mapGeographyToRegion(n) !== null);
+              if (regionHit) {
+                sheetName = regionHit;
+              }
             }
           }
         }
@@ -586,21 +595,90 @@ export function normalizeEmployeeRows(aoa: (string | number)[][]): RawEmployeeRo
   return rows;
 }
 
-export function normalizeEmployerRows(aoa: (string | number)[][]): RawEmployerRow[] {
+export function detectRegionFromContext(
+  aoa?: (string | number)[][],
+  sheetName?: string,
+  fileName?: string
+): RegionType | null {
+  // 1. Check sheet tab name (e.g. "Benelux", "Benelux Planning")
+  if (sheetName) {
+    const fromTab = mapGeographyToRegion(sheetName);
+    if (fromTab) return fromTab;
+  }
+
+  // 2. Check file name (e.g. "Daily Planning Sheet - Benelux.xlsx")
+  if (fileName) {
+    const fromFile = mapGeographyToRegion(fileName);
+    if (fromFile) return fromFile;
+  }
+
+  // 3. Check top 10 rows of aoa for metadata like "Region: Benelux", "Benelux Daily Planning", etc.
+  if (aoa && aoa.length) {
+    for (let r = 0; r < Math.min(10, aoa.length); r++) {
+      const row = aoa[r];
+      if (!row) continue;
+      for (let c = 0; c < Math.min(10, row.length); c++) {
+        const cell = String(row[c] || '').trim();
+        if (!cell) continue;
+
+        const lower = cell.toLowerCase();
+        if (
+          lower.includes('region') ||
+          lower.includes('geography') ||
+          lower.includes('market') ||
+          lower.includes('territory')
+        ) {
+          const reg = mapGeographyToRegion(cell);
+          if (reg) return reg;
+
+          if (c + 1 < row.length) {
+            const nextCell = String(row[c + 1] || '').trim();
+            const nextReg = mapGeographyToRegion(nextCell);
+            if (nextReg) return nextReg;
+          }
+        } else {
+          const directReg = mapGeographyToRegion(cell);
+          if (directReg) return directReg;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+export function normalizeEmployerRows(
+  aoa: (string | number)[][],
+  context?: {
+    fileName?: string;
+    sheetName?: string;
+    defaultRegion?: string;
+  }
+): RawEmployerRow[] {
   if (!aoa || !aoa.length) return [];
 
-  // Check top-level cell for "Week Identifier" (e.g. Row 0: "Week Identifier,202638")
+  // Sheet-level region detection
+  const detectedSheetRegion =
+    detectRegionFromContext(aoa, context?.sheetName, context?.fileName) || undefined;
+  const forcedRegion =
+    context?.defaultRegion && context.defaultRegion !== 'auto' && context.defaultRegion !== 'mixed'
+      ? (context.defaultRegion as RegionType)
+      : undefined;
+  let fallbackSheetRegion = forcedRegion || detectedSheetRegion;
+
+  // Check top-level cell for "Week Identifier" or "Region" (e.g. Row 0: "Week Identifier,202638")
   let topLevelWeek = '';
-  for (let i = 0; i < Math.min(5, aoa.length); i++) {
+  for (let i = 0; i < Math.min(6, aoa.length); i++) {
     const row = aoa[i];
     if (row && row.length >= 2) {
       const cell0 = String(row[0] || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (cell0.includes('weekidentifier') || cell0 === 'week') {
-        const val = String(row[1] || '').trim();
-        if (val) {
-          topLevelWeek = val;
-          break;
-        }
+      const cell1 = String(row[1] || '').trim();
+      if ((cell0.includes('weekidentifier') || cell0 === 'week') && cell1) {
+        topLevelWeek = cell1;
+      }
+      if ((cell0.includes('region') || cell0.includes('geography') || cell0.includes('market')) && cell1) {
+        const parsed = mapGeographyToRegion(cell1);
+        if (parsed) fallbackSheetRegion = parsed;
       }
     }
   }
@@ -637,7 +715,20 @@ export function normalizeEmployerRows(aoa: (string | number)[][]): RawEmployerRo
       h.includes('entity') ||
       h.includes('title')
     );
-    const geoI = row.findIndex((h) => h.includes('geo') || h.includes('geography') || h.includes('region') || h.includes('country'));
+    const geoI = row.findIndex((h) =>
+      h.includes('geo') ||
+      h.includes('geography') ||
+      h.includes('region') ||
+      h.includes('country') ||
+      h.includes('market') ||
+      h.includes('location') ||
+      h.includes('territory') ||
+      h.includes('cluster') ||
+      h.includes('hub') ||
+      h.includes('area') ||
+      h.includes('zone') ||
+      h.includes('office')
+    );
     const newsI = row.findIndex((h) => h.includes('news') || h.includes('inthenews'));
     const prodI = row.findIndex((h) => h.includes('production') || h === 'prod' || h.includes('update') || h === 'full' || h === 'limited');
     const revI = row.findIndex((h) => h.includes('review') || h === 'rev' || h === 'r');
@@ -683,7 +774,15 @@ export function normalizeEmployerRows(aoa: (string | number)[][]): RawEmployerRo
           day: row.findIndex((h) => h === 'day'),
           date: row.findIndex((h) => h.includes('date') || h.includes('day')),
           asset: assetI,
-          geography: row.findIndex((h) => h.includes('geo') || h.includes('geography')),
+          geography: row.findIndex((h) =>
+            h.includes('geo') ||
+            h.includes('geography') ||
+            h.includes('region') ||
+            h.includes('country') ||
+            h.includes('market') ||
+            h.includes('location') ||
+            h.includes('territory')
+          ),
           inTheNews: row.findIndex((h) => h.includes('news')),
           production: row.findIndex((h) => h.includes('production') || h.includes('prod') || h.includes('update')),
           review: row.findIndex((h) => h.includes('review') || h.includes('rev')),
@@ -721,7 +820,8 @@ export function normalizeEmployerRows(aoa: (string | number)[][]): RawEmployerRo
     const effectiveWeek = rowWeek || topLevelWeek || (parsedDate ? weekStartKey(parsedDate) || '' : '');
 
     const geoRaw = idx.geography >= 0 ? String(r[idx.geography] || '').trim() : '';
-    const region = mapGeographyToRegion(geoRaw) || undefined;
+    const rowRegion = mapGeographyToRegion(geoRaw);
+    const effectiveRegion = forcedRegion || rowRegion || fallbackSheetRegion || undefined;
 
     rows.push({
       assetName: asset,
@@ -734,101 +834,156 @@ export function normalizeEmployerRows(aoa: (string | number)[][]): RawEmployerRo
       week: effectiveWeek || undefined,
       day: idx.day >= 0 ? String(r[idx.day] || '').trim() : undefined,
       geography: geoRaw || undefined,
-      region,
+      region: effectiveRegion,
       inTheNews: idx.inTheNews >= 0 ? String(r[idx.inTheNews] || '').trim() : undefined
     });
   }
   return rows;
 }
 
-export function mapGeographyToRegion(geo?: string | null): string | null {
+export function mapGeographyToRegion(geo?: string | null): RegionType | null {
   if (!geo) return null;
-  const s = String(geo).trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  const raw = String(geo).trim().toLowerCase();
+  const s = raw.replace(/[^a-z0-9]/g, '');
   if (!s) return null;
+
+  // Benelux (Netherlands, Belgium, Luxembourg)
+  if (
+    s.includes('benelux') ||
+    s === 'bnl' ||
+    s === 'nl' ||
+    s.includes('netherland') ||
+    s.includes('holland') ||
+    s === 'be' ||
+    s.includes('belgi') || // belgium, belgique, belgie, belgian
+    s === 'lu' ||
+    s.includes('luxemb') || // luxembourg, luxemburg
+    s === 'benl' ||
+    s === 'nlbe' ||
+    s.includes('amsterdam') ||
+    s.includes('rotterdam') ||
+    s.includes('hague') ||
+    s.includes('brussel') ||
+    s.includes('antwerp') ||
+    s.includes('ghent') ||
+    s.includes('dutch') ||
+    s.includes('flemish')
+  ) {
+    return 'Benelux';
+  }
 
   // The UK/US
   if (
     s === 'uk' ||
     s === 'us' ||
-    s === 'uknice' ||
-    s === 'ukandnice' ||
+    s.includes('uknice') ||
+    s.includes('ukandnice') ||
     s === 'ukus' ||
     s === 'theukus' ||
-    s === 'unitedkingdom' ||
-    s === 'unitedstates' ||
+    s.includes('unitedkingdom') ||
+    s.includes('greatbritain') ||
+    s.includes('britain') ||
+    s.includes('england') ||
+    s.includes('scotland') ||
+    s.includes('wales') ||
+    s.includes('london') ||
+    s.includes('unitedstates') ||
     s === 'usa' ||
+    s.includes('america') ||
     s === 'gbr'
   ) {
     return 'The UK/US';
   }
 
-  // Southern Europe
+  // Southern Europe (Spain, Italy, Portugal, Greece)
   if (
     s === 'se' ||
-    s === 'southerneurope' ||
+    s.includes('southerneurope') ||
     s === 'es' ||
+    s.includes('spain') ||
+    s.includes('espana') ||
+    s.includes('spanish') ||
     s === 'it' ||
+    s.includes('ital') ||
     s === 'pt' ||
+    s.includes('portug') ||
     s === 'gr' ||
-    s === 'spain' ||
-    s === 'italy' ||
-    s === 'portugal' ||
-    s === 'greece' ||
-    s === 'iberia'
+    s.includes('gree') ||
+    s.includes('iberia') ||
+    s.includes('madrid') ||
+    s.includes('barcelona') ||
+    s.includes('milan') ||
+    s.includes('rome') ||
+    s.includes('lisbon') ||
+    s.includes('athens')
   ) {
     return 'Southern Europe';
   }
 
   // France
-  if (s === 'france' || s === 'fr' || s === 'french') {
+  if (
+    s.includes('franc') ||
+    s.includes('french') ||
+    s === 'fr' ||
+    s.includes('paris')
+  ) {
     return 'France';
   }
 
-  // DACH
+  // DACH (Germany, Austria, Switzerland)
   if (
-    s === 'dach' ||
+    s.includes('dach') ||
     s === 'de' ||
-    s === 'germany' ||
-    s === 'deutschland' ||
+    s.includes('german') ||
+    s.includes('deutsch') ||
     s === 'at' ||
-    s === 'austria' ||
+    s.includes('austria') ||
+    s.includes('oesterreich') ||
     s === 'ch' ||
-    s === 'switzerland'
+    s.includes('switz') ||
+    s.includes('schweiz') ||
+    s.includes('berlin') ||
+    s.includes('munich') ||
+    s.includes('frankfurt') ||
+    s.includes('vienna') ||
+    s.includes('zurich')
   ) {
     return 'DACH';
   }
 
-  // Benelux
+  // NORCEE (Nordics & Central Eastern Europe)
   if (
-    s === 'benelux' ||
-    s === 'bnl' ||
-    s === 'nl' ||
-    s === 'netherlands' ||
-    s === 'be' ||
-    s === 'belgium' ||
-    s === 'lu' ||
-    s === 'luxembourg'
-  ) {
-    return 'Benelux';
-  }
-
-  // NORCEE
-  if (
-    s === 'norcee' ||
-    s === 'nordics' ||
-    s === 'cee' ||
-    s === 'nor' ||
-    s === 'poland' ||
+    s.includes('norcee') ||
+    s.includes('nordic') ||
+    s.includes('cee') ||
+    s.includes('poland') ||
+    s.includes('polska') ||
+    s.includes('polish') ||
+    s.includes('czech') ||
+    s.includes('denmark') ||
+    s.includes('danmark') ||
+    s.includes('danish') ||
+    s.includes('norway') ||
+    s.includes('norge') ||
+    s.includes('norwegian') ||
+    s.includes('finland') ||
+    s.includes('suomi') ||
+    s.includes('finnish') ||
+    s.includes('sweden') ||
+    s.includes('sverige') ||
+    s.includes('swedish') ||
     s === 'pl' ||
-    s === 'czech' ||
     s === 'cz' ||
-    s === 'denmark' ||
     s === 'dk' ||
-    s === 'norway' ||
     s === 'no' ||
-    s === 'finland' ||
     s === 'fi' ||
-    s === 'sweden'
+    (s === 'se' && (raw.includes('sweden') || raw.includes('sverige'))) ||
+    s.includes('warsaw') ||
+    s.includes('prague') ||
+    s.includes('copenhagen') ||
+    s.includes('oslo') ||
+    s.includes('stockholm') ||
+    s.includes('helsinki')
   ) {
     return 'NORCEE';
   }

@@ -1,112 +1,113 @@
 import { RawEmployeeRow, RawEmployerRow } from '../types';
-import { normAsset, normDate, mapGeographyToRegion } from './parser';
+import { normAsset, normDate, mapGeographyToRegion, normalizeCountryCode } from './parser';
 
 export function getSampleDataPullSheet(): RawEmployeeRow[] {
   const rawList = [
-    // --- THE UK/US: Jaynam Gandhi (Week 202638) ---
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'Slamcore', date: '14-Sep-26', mins: 45, type: 'updatedReviewFull' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'Deucalion Aviation', date: '14-Sep-26', mins: 50, type: 'updatedReviewFull' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'Synchrony Group', date: '15-Sep-26', mins: 35, type: 'updatedReviewLimited' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'Distyl AI', date: '15-Sep-26', mins: 40, type: 'updatedReviewLimited' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'PIB Group', date: '15-Sep-26', mins: 60, type: 'updatedReviewFull' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'Aegis Sciences Corporation', date: '15-Sep-26', mins: 55, type: 'updatedReviewFull' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'Puzzle', date: '15-Sep-26', mins: 45, type: 'updatedReviewFull' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'Denali Universal Services', date: '15-Sep-26', mins: 50, type: 'updatedReviewFull' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'La Chiquita Tortilla', date: '16-Sep-26', mins: 30, type: 'updatedReviewLimited' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'Interstate Electrical Services Corporation', date: '16-Sep-26', mins: 65, type: 'updatedReviewFull' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'Cloud9 Esports', date: '16-Sep-26', mins: 50, type: 'updatedReviewFull' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'Norbev', date: '16-Sep-26', mins: 35, type: 'updatedReviewLimited' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'Aquaspersions', date: '16-Sep-26', mins: 35, type: 'updatedReviewLimited' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'Scoreline', date: '16-Sep-26', mins: 60, type: 'updatedReviewFull' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'Connectd', date: '17-Sep-26', mins: 30, type: 'updatedReviewLimited' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'All Things Dairy', date: '17-Sep-26', mins: 55, type: 'updatedReviewFull' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'Firefish Software', date: '17-Sep-26', mins: 50, type: 'updatedReviewFull' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'Alpine Health', date: '17-Sep-26', mins: 35, type: 'updatedReviewLimited' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'Shared Tower', date: '17-Sep-26', mins: 45, type: 'updatedReviewFull' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'Tonic Health', date: '18-Sep-26', mins: 50, type: 'updatedReviewFull' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'Optalysys', date: '18-Sep-26', mins: 30, type: 'updatedReviewLimited' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'TFI Marine', date: '18-Sep-26', mins: 50, type: 'updatedReviewFull' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'Greywolf Therapeutics', date: '18-Sep-26', mins: 55, type: 'updatedReviewFull' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'CHARM Therapeutics', date: '18-Sep-26', mins: 60, type: 'updatedReviewFull' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'SEO', date: '18-Sep-26', mins: 45, type: 'updatedReviewFull' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'Second Nature Brands', date: '19-Sep-26', mins: 50, type: 'updatedReviewFull' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'SeqCenter', date: '19-Sep-26', mins: 35, type: 'updatedReviewLimited' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'US Eye', date: '19-Sep-26', mins: 50, type: 'updatedReviewFull' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'Coast', date: '19-Sep-26', mins: 35, type: 'updatedReviewLimited' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'SugaROx', date: '19-Sep-26', mins: 45, type: 'updatedReviewFull' },
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'Phagenesis', date: '19-Sep-26', mins: 55, type: 'updatedReviewFull' },
+    // --- THE US/UK: Jaynam Gandhi (Week 202638) ---
+    // Column C Country codes: US or GB
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'GB', asset: 'Slamcore', date: '14-Sep-26', mins: 45, type: 'updatedReviewFull' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'GB', asset: 'Deucalion Aviation', date: '14-Sep-26', mins: 50, type: 'updatedReviewFull' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'US', asset: 'Synchrony Group', date: '15-Sep-26', mins: 35, type: 'updatedReviewLimited' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'US', asset: 'Distyl AI', date: '15-Sep-26', mins: 40, type: 'updatedReviewLimited' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'GB', asset: 'PIB Group', date: '15-Sep-26', mins: 60, type: 'updatedReviewFull' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'US', asset: 'Aegis Sciences Corporation', date: '15-Sep-26', mins: 55, type: 'updatedReviewFull' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'US', asset: 'Puzzle', date: '15-Sep-26', mins: 45, type: 'updatedReviewFull' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'US', asset: 'Denali Universal Services', date: '15-Sep-26', mins: 50, type: 'updatedReviewFull' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'US', asset: 'La Chiquita Tortilla', date: '16-Sep-26', mins: 30, type: 'updatedReviewLimited' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'US', asset: 'Interstate Electrical Services Corporation', date: '16-Sep-26', mins: 65, type: 'updatedReviewFull' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'US', asset: 'Cloud9 Esports', date: '16-Sep-26', mins: 50, type: 'updatedReviewFull' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'GB', asset: 'Norbev', date: '16-Sep-26', mins: 35, type: 'updatedReviewLimited' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'GB', asset: 'Aquaspersions', date: '16-Sep-26', mins: 35, type: 'updatedReviewLimited' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'GB', asset: 'Scoreline', date: '16-Sep-26', mins: 60, type: 'updatedReviewFull' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'GB', asset: 'Connectd', date: '17-Sep-26', mins: 30, type: 'updatedReviewLimited' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'GB', asset: 'All Things Dairy', date: '17-Sep-26', mins: 55, type: 'updatedReviewFull' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'GB', asset: 'Firefish Software', date: '17-Sep-26', mins: 50, type: 'updatedReviewFull' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'US', asset: 'Alpine Health', date: '17-Sep-26', mins: 35, type: 'updatedReviewLimited' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'US', asset: 'Shared Tower', date: '17-Sep-26', mins: 45, type: 'updatedReviewFull' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'GB', asset: 'Tonic Health', date: '18-Sep-26', mins: 50, type: 'updatedReviewFull' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'GB', asset: 'Optalysys', date: '18-Sep-26', mins: 30, type: 'updatedReviewLimited' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'GB', asset: 'TFI Marine', date: '18-Sep-26', mins: 50, type: 'updatedReviewFull' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'GB', asset: 'Greywolf Therapeutics', date: '18-Sep-26', mins: 55, type: 'updatedReviewFull' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'GB', asset: 'CHARM Therapeutics', date: '18-Sep-26', mins: 60, type: 'updatedReviewFull' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'US', asset: 'SEO', date: '18-Sep-26', mins: 45, type: 'updatedReviewFull' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'US', asset: 'Second Nature Brands', date: '19-Sep-26', mins: 50, type: 'updatedReviewFull' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'US', asset: 'SeqCenter', date: '19-Sep-26', mins: 35, type: 'updatedReviewLimited' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'US', asset: 'US Eye', date: '19-Sep-26', mins: 50, type: 'updatedReviewFull' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'US', asset: 'Coast', date: '19-Sep-26', mins: 35, type: 'updatedReviewLimited' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'GB', asset: 'SugaROx', date: '19-Sep-26', mins: 45, type: 'updatedReviewFull' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'GB', asset: 'Phagenesis', date: '19-Sep-26', mins: 55, type: 'updatedReviewFull' },
     // Discrepancy test: Kingswood Mobility Group logged as updatedFull instead of review
-    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', asset: 'Kingswood Mobility Group', date: '14-Sep-26', mins: 45, type: 'updatedFull' },
+    { first: 'Jaynam', last: 'Gandhi', uid: 'EMP-301', country: 'GB', asset: 'Kingswood Mobility Group', date: '14-Sep-26', mins: 45, type: 'updatedFull' },
 
-    // --- THE UK/US: Sanjana Khiani (Week 202638) ---
-    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', asset: 'Seen Health', date: '14-Sep-26', mins: 35, type: 'updatedReviewLimited' },
-    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', asset: 'Fullscript', date: '14-Sep-26', mins: 90, type: 'updatedFull' },
-    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', asset: 'Fullscript', date: '14-Sep-26', mins: 45, type: 'updatedReviewFull' },
-    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', asset: 'Xapien', date: '15-Sep-26', mins: 30, type: 'updatedReviewLimited' },
-    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', asset: 'Roma Finance', date: '15-Sep-26', mins: 35, type: 'updatedReviewLimited' },
-    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', asset: 'Extrastaff', date: '15-Sep-26', mins: 30, type: 'updatedReviewLimited' },
-    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', asset: 'Crew Clothing Company', date: '15-Sep-26', mins: 60, type: 'updatedReviewFull' },
-    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', asset: 'Stream', date: '15-Sep-26', mins: 50, type: 'updatedReviewFull' },
-    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', asset: 'CCTV Camera Pros', date: '15-Sep-26', mins: 45, type: 'updatedReviewFull' },
-    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', asset: 'Tekskills', date: '16-Sep-26', mins: 50, type: 'updatedReviewFull' },
-    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', asset: 'OPEX Corporation', date: '16-Sep-26', mins: 55, type: 'updatedReviewFull' },
-    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', asset: 'Semgrep', date: '16-Sep-26', mins: 50, type: 'updatedReviewFull' },
-    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', asset: 'Outbuild', date: '16-Sep-26', mins: 35, type: 'updatedReviewLimited' },
-    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', asset: 'Archy', date: '16-Sep-26', mins: 45, type: 'updatedLimited' },
-    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', asset: 'Archy', date: '16-Sep-26', mins: 30, type: 'updatedReviewLimited' },
-    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', asset: 'MBF Inspection Services', date: '16-Sep-26', mins: 50, type: 'updatedReviewFull' },
-    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', asset: 'RapidRatings', date: '17-Sep-26', mins: 50, type: 'updatedReviewFull' },
+    // --- THE US/UK: Sanjana Khiani (Week 202638) ---
+    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', country: 'US', asset: 'Seen Health', date: '14-Sep-26', mins: 35, type: 'updatedReviewLimited' },
+    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', country: 'US', asset: 'Fullscript', date: '14-Sep-26', mins: 90, type: 'updatedFull' },
+    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', country: 'US', asset: 'Fullscript', date: '14-Sep-26', mins: 45, type: 'updatedReviewFull' },
+    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', country: 'GB', asset: 'Xapien', date: '15-Sep-26', mins: 30, type: 'updatedReviewLimited' },
+    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', country: 'GB', asset: 'Roma Finance', date: '15-Sep-26', mins: 35, type: 'updatedReviewLimited' },
+    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', country: 'GB', asset: 'Extrastaff', date: '15-Sep-26', mins: 30, type: 'updatedReviewLimited' },
+    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', country: 'GB', asset: 'Crew Clothing Company', date: '15-Sep-26', mins: 60, type: 'updatedReviewFull' },
+    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', country: 'GB', asset: 'Stream', date: '15-Sep-26', mins: 50, type: 'updatedReviewFull' },
+    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', country: 'US', asset: 'CCTV Camera Pros', date: '15-Sep-26', mins: 45, type: 'updatedReviewFull' },
+    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', country: 'US', asset: 'Tekskills', date: '16-Sep-26', mins: 50, type: 'updatedReviewFull' },
+    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', country: 'US', asset: 'OPEX Corporation', date: '16-Sep-26', mins: 55, type: 'updatedReviewFull' },
+    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', country: 'US', asset: 'Semgrep', date: '16-Sep-26', mins: 50, type: 'updatedReviewFull' },
+    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', country: 'US', asset: 'Outbuild', date: '16-Sep-26', mins: 35, type: 'updatedReviewLimited' },
+    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', country: 'US', asset: 'Archy', date: '16-Sep-26', mins: 45, type: 'updatedLimited' },
+    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', country: 'US', asset: 'Archy', date: '16-Sep-26', mins: 30, type: 'updatedReviewLimited' },
+    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', country: 'US', asset: 'MBF Inspection Services', date: '16-Sep-26', mins: 50, type: 'updatedReviewFull' },
+    { first: 'Sanjana', last: 'Khiani', uid: 'EMP-302', country: 'US', asset: 'RapidRatings', date: '17-Sep-26', mins: 50, type: 'updatedReviewFull' },
 
-    // --- THE UK/US: Dhruv Garg (Week 202638) ---
-    { first: 'Dhruv', last: 'Garg', uid: 'EMP-303', asset: 'Scott Bader', date: '14-Sep-26', mins: 50, type: 'updatedReviewFull' },
-    { first: 'Dhruv', last: 'Garg', uid: 'EMP-303', asset: 'Bionical Emas', date: '14-Sep-26', mins: 55, type: 'updatedReviewFull' },
-    { first: 'Dhruv', last: 'Garg', uid: 'EMP-303', asset: 'Shire Leasing', date: '14-Sep-26', mins: 35, type: 'updatedReviewLimited' },
-    { first: 'Dhruv', last: 'Garg', uid: 'EMP-303', asset: 'Sanctuary & Seven Group', date: '14-Sep-26', mins: 30, type: 'updatedReviewLimited' },
-    { first: 'Dhruv', last: 'Garg', uid: 'EMP-303', asset: 'Welbeck', date: '14-Sep-26', mins: 50, type: 'updatedReviewFull' },
-    { first: 'Dhruv', last: 'Garg', uid: 'EMP-303', asset: 'Valent', date: '14-Sep-26', mins: 35, type: 'updatedReviewLimited' },
-    { first: 'Dhruv', last: 'Garg', uid: 'EMP-303', asset: 'Red Sift', date: '14-Sep-26', mins: 30, type: 'updatedReviewLimited' },
-    { first: 'Dhruv', last: 'Garg', uid: 'EMP-303', asset: 'AvalonBay Communities', date: '14-Sep-26', mins: 75, type: 'updatedFull' },
-    { first: 'Dhruv', last: 'Garg', uid: 'EMP-303', asset: 'AvalonBay Communities', date: '14-Sep-26', mins: 45, type: 'updatedReviewFull' },
-    { first: 'Dhruv', last: 'Garg', uid: 'EMP-303', asset: 'Vivmark Residential', date: '14-Sep-26', mins: 50, type: 'updatedReviewFull' },
-    { first: 'Dhruv', last: 'Garg', uid: 'EMP-303', asset: 'Shippo', date: '14-Sep-26', mins: 55, type: 'updatedReviewFull' },
-    { first: 'Dhruv', last: 'Garg', uid: 'EMP-303', asset: 'Ontic', date: '14-Sep-26', mins: 50, type: 'updatedReviewFull' },
-    { first: 'Dhruv', last: 'Garg', uid: 'EMP-303', asset: 'Startline Motor Finance', date: '15-Sep-26', mins: 35, type: 'updatedReviewLimited' },
+    // --- THE US/UK: Dhruv Garg (Week 202638) ---
+    { first: 'Dhruv', last: 'Garg', uid: 'EMP-303', country: 'GB', asset: 'Scott Bader', date: '14-Sep-26', mins: 50, type: 'updatedReviewFull' },
+    { first: 'Dhruv', last: 'Garg', uid: 'EMP-303', country: 'GB', asset: 'Bionical Emas', date: '14-Sep-26', mins: 55, type: 'updatedReviewFull' },
+    { first: 'Dhruv', last: 'Garg', uid: 'EMP-303', country: 'GB', asset: 'Shire Leasing', date: '14-Sep-26', mins: 35, type: 'updatedReviewLimited' },
+    { first: 'Dhruv', last: 'Garg', uid: 'EMP-303', country: 'GB', asset: 'Sanctuary & Seven Group', date: '14-Sep-26', mins: 30, type: 'updatedReviewLimited' },
+    { first: 'Dhruv', last: 'Garg', uid: 'EMP-303', country: 'GB', asset: 'Welbeck', date: '14-Sep-26', mins: 50, type: 'updatedReviewFull' },
+    { first: 'Dhruv', last: 'Garg', uid: 'EMP-303', country: 'GB', asset: 'Valent', date: '14-Sep-26', mins: 35, type: 'updatedReviewLimited' },
+    { first: 'Dhruv', last: 'Garg', uid: 'EMP-303', country: 'GB', asset: 'Red Sift', date: '14-Sep-26', mins: 30, type: 'updatedReviewLimited' },
+    { first: 'Dhruv', last: 'Garg', uid: 'EMP-303', country: 'US', asset: 'AvalonBay Communities', date: '14-Sep-26', mins: 75, type: 'updatedFull' },
+    { first: 'Dhruv', last: 'Garg', uid: 'EMP-303', country: 'US', asset: 'AvalonBay Communities', date: '14-Sep-26', mins: 45, type: 'updatedReviewFull' },
+    { first: 'Dhruv', last: 'Garg', uid: 'EMP-303', country: 'US', asset: 'Vivmark Residential', date: '14-Sep-26', mins: 50, type: 'updatedReviewFull' },
+    { first: 'Dhruv', last: 'Garg', uid: 'EMP-303', country: 'US', asset: 'Shippo', date: '14-Sep-26', mins: 55, type: 'updatedReviewFull' },
+    { first: 'Dhruv', last: 'Garg', uid: 'EMP-303', country: 'GB', asset: 'Ontic', date: '14-Sep-26', mins: 50, type: 'updatedReviewFull' },
+    { first: 'Dhruv', last: 'Garg', uid: 'EMP-303', country: 'GB', asset: 'Startline Motor Finance', date: '15-Sep-26', mins: 35, type: 'updatedReviewLimited' },
 
     // --- SOUTHERN EUROPE: Aditi Manikandan (Week 202638) ---
-    { first: 'Aditi', last: 'Manikandan', uid: 'EMP-401', asset: 'Afesa / Mendiola', date: '14-Sep-26', mins: 120, type: 'full' },
-    { first: 'Aditi', last: 'Manikandan', uid: 'EMP-401', asset: 'Aquanaria', date: '14-Sep-26', mins: 55, type: 'updatedReviewFull' },
-    { first: 'Aditi', last: 'Manikandan', uid: 'EMP-401', asset: 'Plastigaur', date: '14-Sep-26', mins: 50, type: 'updatedReviewFull' },
-    { first: 'Aditi', last: 'Manikandan', uid: 'EMP-401', asset: 'Cosmelux Group', date: '14-Sep-26', mins: 60, type: 'updatedReviewFull' },
-    { first: 'Aditi', last: 'Manikandan', uid: 'EMP-401', asset: 'Motocard Group', date: '15-Sep-26', mins: 55, type: 'updatedReviewFull' },
-    { first: 'Aditi', last: 'Manikandan', uid: 'EMP-401', asset: 'Lantania Group', date: '15-Sep-26', mins: 50, type: 'updatedReviewFull' },
-    { first: 'Aditi', last: 'Manikandan', uid: 'EMP-401', asset: 'Bracco Group', date: '15-Sep-26', mins: 55, type: 'updatedReviewFull' },
-    { first: 'Aditi', last: 'Manikandan', uid: 'EMP-401', asset: 'Latteria Soresina', date: '15-Sep-26', mins: 50, type: 'updatedReviewFull' },
+    { first: 'Aditi', last: 'Manikandan', uid: 'EMP-401', country: 'ES', asset: 'Afesa / Mendiola', date: '14-Sep-26', mins: 120, type: 'full' },
+    { first: 'Aditi', last: 'Manikandan', uid: 'EMP-401', country: 'ES', asset: 'Aquanaria', date: '14-Sep-26', mins: 55, type: 'updatedReviewFull' },
+    { first: 'Aditi', last: 'Manikandan', uid: 'EMP-401', country: 'ES', asset: 'Plastigaur', date: '14-Sep-26', mins: 50, type: 'updatedReviewFull' },
+    { first: 'Aditi', last: 'Manikandan', uid: 'EMP-401', country: 'ES', asset: 'Cosmelux Group', date: '14-Sep-26', mins: 60, type: 'updatedReviewFull' },
+    { first: 'Aditi', last: 'Manikandan', uid: 'EMP-401', country: 'ES', asset: 'Motocard Group', date: '15-Sep-26', mins: 55, type: 'updatedReviewFull' },
+    { first: 'Aditi', last: 'Manikandan', uid: 'EMP-401', country: 'ES', asset: 'Lantania Group', date: '15-Sep-26', mins: 50, type: 'updatedReviewFull' },
+    { first: 'Aditi', last: 'Manikandan', uid: 'EMP-401', country: 'IT', asset: 'Bracco Group', date: '15-Sep-26', mins: 55, type: 'updatedReviewFull' },
+    { first: 'Aditi', last: 'Manikandan', uid: 'EMP-401', country: 'IT', asset: 'Latteria Soresina', date: '15-Sep-26', mins: 50, type: 'updatedReviewFull' },
 
     // --- SOUTHERN EUROPE: Kriti K (Week 202638) ---
-    { first: 'Kriti', last: 'K', uid: 'EMP-402', asset: 'Alimerka Group', date: '15-Sep-26', mins: 50, type: 'updatedReviewFull' },
-    { first: 'Kriti', last: 'K', uid: 'EMP-402', asset: 'Vithas Group', date: '15-Sep-26', mins: 55, type: 'updatedReviewFull' },
-    { first: 'Kriti', last: 'K', uid: 'EMP-402', asset: 'Dcycle Group', date: '15-Sep-26', mins: 45, type: 'updatedReviewFull' },
-    { first: 'Kriti', last: 'K', uid: 'EMP-402', asset: 'Korus Group', date: '15-Sep-26', mins: 35, type: 'updatedReviewLimited' },
-    { first: 'Kriti', last: 'K', uid: 'EMP-402', asset: 'Veneta Cucine', date: '16-Sep-26', mins: 50, type: 'updatedReviewFull' },
-    { first: 'Kriti', last: 'K', uid: 'EMP-402', asset: 'Scrigno Group', date: '16-Sep-26', mins: 55, type: 'updatedReviewFull' },
+    { first: 'Kriti', last: 'K', uid: 'EMP-402', country: 'ES', asset: 'Alimerka Group', date: '15-Sep-26', mins: 50, type: 'updatedReviewFull' },
+    { first: 'Kriti', last: 'K', uid: 'EMP-402', country: 'ES', asset: 'Vithas Group', date: '15-Sep-26', mins: 55, type: 'updatedReviewFull' },
+    { first: 'Kriti', last: 'K', uid: 'EMP-402', country: 'ES', asset: 'Dcycle Group', date: '15-Sep-26', mins: 45, type: 'updatedReviewFull' },
+    { first: 'Kriti', last: 'K', uid: 'EMP-402', country: 'ES', asset: 'Korus Group', date: '15-Sep-26', mins: 35, type: 'updatedReviewLimited' },
+    { first: 'Kriti', last: 'K', uid: 'EMP-402', country: 'IT', asset: 'Veneta Cucine', date: '16-Sep-26', mins: 50, type: 'updatedReviewFull' },
+    { first: 'Kriti', last: 'K', uid: 'EMP-402', country: 'IT', asset: 'Scrigno Group', date: '16-Sep-26', mins: 55, type: 'updatedReviewFull' },
 
     // --- FRANCE: Lucas Mercier (Week 202638) ---
-    { first: 'Lucas', last: 'Mercier', uid: 'EMP-501', asset: 'Babilou Group', date: '14-Sep-26', mins: 50, type: 'updatedReviewFull' },
-    { first: 'Lucas', last: 'Mercier', uid: 'EMP-501', asset: 'Kardham', date: '15-Sep-26', mins: 35, type: 'updatedReviewLimited' },
-    { first: 'Lucas', last: 'Mercier', uid: 'EMP-501', asset: 'ManoMano France', date: '16-Sep-26', mins: 55, type: 'updatedReviewFull' },
+    { first: 'Lucas', last: 'Mercier', uid: 'EMP-501', country: 'FR', asset: 'Babilou Group', date: '14-Sep-26', mins: 50, type: 'updatedReviewFull' },
+    { first: 'Lucas', last: 'Mercier', uid: 'EMP-501', country: 'FR', asset: 'Kardham', date: '15-Sep-26', mins: 35, type: 'updatedReviewLimited' },
+    { first: 'Lucas', last: 'Mercier', uid: 'EMP-501', country: 'FR', asset: 'ManoMano France', date: '16-Sep-26', mins: 55, type: 'updatedReviewFull' },
 
     // --- DACH: Stefan Meier (Week 202638) ---
-    { first: 'Stefan', last: 'Meier', uid: 'EMP-601', asset: 'Brose Group', date: '14-Sep-26', mins: 55, type: 'updatedReviewFull' },
-    { first: 'Stefan', last: 'Meier', uid: 'EMP-601', asset: 'TeamViewer DE', date: '15-Sep-26', mins: 50, type: 'updatedReviewFull' },
-    { first: 'Stefan', last: 'Meier', uid: 'EMP-601', asset: 'Sennheiser Electronic', date: '16-Sep-26', mins: 35, type: 'updatedReviewLimited' },
+    { first: 'Stefan', last: 'Meier', uid: 'EMP-601', country: 'DE', asset: 'Brose Group', date: '14-Sep-26', mins: 55, type: 'updatedReviewFull' },
+    { first: 'Stefan', last: 'Meier', uid: 'EMP-601', country: 'DE', asset: 'TeamViewer DE', date: '15-Sep-26', mins: 50, type: 'updatedReviewFull' },
+    { first: 'Stefan', last: 'Meier', uid: 'EMP-601', country: 'DE', asset: 'Sennheiser Electronic', date: '16-Sep-26', mins: 35, type: 'updatedReviewLimited' },
 
     // --- BENELUX: Lars Van Dijk (Week 202638) ---
-    { first: 'Lars', last: 'Van Dijk', uid: 'EMP-701', asset: 'Adyen N.V.', date: '15-Sep-26', mins: 55, type: 'updatedReviewFull' },
-    { first: 'Lars', last: 'Van Dijk', uid: 'EMP-701', asset: 'Coolblue Logistics', date: '16-Sep-26', mins: 35, type: 'updatedReviewLimited' },
+    { first: 'Lars', last: 'Van Dijk', uid: 'EMP-701', country: 'NL', asset: 'Adyen N.V.', date: '15-Sep-26', mins: 55, type: 'updatedReviewFull' },
+    { first: 'Lars', last: 'Van Dijk', uid: 'EMP-701', country: 'NL', asset: 'Coolblue Logistics', date: '16-Sep-26', mins: 35, type: 'updatedReviewLimited' },
 
     // --- NORCEE: Astrid Lindqvist (Week 202638) ---
-    { first: 'Astrid', last: 'Lindqvist', uid: 'EMP-801', asset: 'Klarna Nordic', date: '14-Sep-26', mins: 50, type: 'updatedReviewFull' },
-    { first: 'Astrid', last: 'Lindqvist', uid: 'EMP-801', asset: 'InPost Poland', date: '16-Sep-26', mins: 40, type: 'updatedReviewLimited' }
+    { first: 'Astrid', last: 'Lindqvist', uid: 'EMP-801', country: 'SE', asset: 'Klarna Nordic', date: '14-Sep-26', mins: 50, type: 'updatedReviewFull' },
+    { first: 'Astrid', last: 'Lindqvist', uid: 'EMP-801', country: 'PL', asset: 'InPost Poland', date: '16-Sep-26', mins: 40, type: 'updatedReviewLimited' }
   ];
 
   return rawList.map((r) => {
@@ -117,6 +118,7 @@ export function getSampleDataPullSheet(): RawEmployeeRow[] {
       firstName: r.first,
       lastName: r.last,
       userId: r.uid,
+      country: r.country ? normalizeCountryCode(r.country) : undefined,
       assetName: r.asset,
       assetKey: normAsset(r.asset),
       date: normDate(r.date),
@@ -128,7 +130,7 @@ export function getSampleDataPullSheet(): RawEmployeeRow[] {
 
 export function getSampleEmployerPlanningSheet(): RawEmployerRow[] {
   const rawList = [
-    // --- THE UK/US: Jaynam Gandhi (Week 202638) ---
+    // --- THE US/UK: Jaynam Gandhi (Week 202638) ---
     { week: '202638', day: 'Monday', date: '14-Sep-26', asset: 'Slamcore', geo: 'UK NICE', news: '', prod: '', rev: 'Update R (full)', status: 'Done', analyst: 'Jaynam Gandhi' },
     { week: '202638', day: 'Monday', date: '14-Sep-26', asset: 'Deucalion Aviation', geo: 'UK NICE', news: '', prod: '', rev: 'Update R (full)', status: 'Done', analyst: 'Jaynam Gandhi' },
     { week: '202638', day: 'Monday', date: '14-Sep-26', asset: 'Kingswood Mobility Group', geo: 'UK NICE', news: '', prod: '', rev: 'Update R (limited)', status: 'Done', analyst: 'Jaynam Gandhi' },
@@ -162,7 +164,7 @@ export function getSampleEmployerPlanningSheet(): RawEmployerRow[] {
     { week: '202638', day: 'Saturday', date: '19-Sep-26', asset: 'SugaROx', geo: 'UK NICE', news: '', prod: '', rev: 'Update R (full)', status: 'Done', analyst: 'Jaynam Gandhi' },
     { week: '202638', day: 'Saturday', date: '19-Sep-26', asset: 'Phagenesis', geo: 'UK NICE', news: '', prod: '', rev: 'Update R (full)', status: 'Done', analyst: 'Jaynam Gandhi' },
 
-    // --- THE UK/US: Sanjana Khiani (Week 202638) ---
+    // --- THE US/UK: Sanjana Khiani (Week 202638) ---
     { week: '202638', day: 'Monday', date: '14-Sep-26', asset: 'Seen Health', geo: 'US', news: '', prod: '', rev: 'Update R (limited)', status: 'Done', analyst: 'Sanjana Khiani' },
     { week: '202638', day: 'Monday', date: '14-Sep-26', asset: 'Fullscript', geo: 'US', news: 'Yes', prod: 'Update (full)', rev: 'Update R (full)', status: 'Done', analyst: 'Sanjana Khiani' },
     { week: '202638', day: 'Tuesday', date: '15-Sep-26', asset: 'Xapien', geo: 'UK NICE', news: '', prod: '', rev: 'Update R (limited)', status: 'Done', analyst: 'Sanjana Khiani' },
@@ -179,7 +181,7 @@ export function getSampleEmployerPlanningSheet(): RawEmployerRow[] {
     { week: '202638', day: 'Wednesday', date: '16-Sep-26', asset: 'MBF Inspection Services', geo: 'US', news: '', prod: '', rev: 'Update R (full)', status: 'Done', analyst: 'Sanjana Khiani' },
     { week: '202638', day: 'Thursday', date: '17-Sep-26', asset: 'RapidRatings', geo: 'US', news: '', prod: '', rev: 'Update R (full)', status: 'Done', analyst: 'Sanjana Khiani' },
 
-    // --- THE UK/US: Dhruv Garg (Week 202638) ---
+    // --- THE US/UK: Dhruv Garg (Week 202638) ---
     { week: '202638', day: 'Monday', date: '14-Sep-26', asset: 'Scott Bader', geo: 'UK NICE', news: '', prod: '', rev: 'Update R (full)', status: 'Done', analyst: 'Dhruv Garg' },
     { week: '202638', day: 'Monday', date: '14-Sep-26', asset: 'Bionical Emas', geo: 'UK NICE', news: '', prod: '', rev: 'Update R (full)', status: 'Done', analyst: 'Dhruv Garg' },
     { week: '202638', day: 'Monday', date: '14-Sep-26', asset: 'Shire Leasing', geo: 'UK NICE', news: '', prod: '', rev: 'Update R (limited)', status: 'Done', analyst: 'Dhruv Garg' },

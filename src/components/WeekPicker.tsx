@@ -15,6 +15,7 @@ interface WeekPickerProps {
   onRangeEndChange: (val: string) => void;
   employeeRows: RawEmployeeRow[] | null;
   employerRows: RawEmployerRow[] | null;
+  onAssignSheetRegion?: (reg: string) => void;
 }
 
 export const WeekPicker: React.FC<WeekPickerProps> = ({
@@ -28,7 +29,8 @@ export const WeekPicker: React.FC<WeekPickerProps> = ({
   onRangeStartChange,
   onRangeEndChange,
   employeeRows,
-  employerRows
+  employerRows,
+  onAssignSheetRegion
 }) => {
   const [analystSearch, setAnalystSearch] = useState('');
   const [showRosterPreview, setShowRosterPreview] = useState(false);
@@ -232,6 +234,22 @@ export const WeekPicker: React.FC<WeekPickerProps> = ({
             </span>
           </button>
         </div>
+
+        {/* Quick Assign Banner if selected region has 0 detected analysts but sheet has analysts */}
+        {selectedRegion !== 'All Regions' && analystRoster.length === 0 && totalAnalystsAcrossAll > 0 && onAssignSheetRegion && (
+          <div className="mt-3.5 p-3.5 bg-[var(--brass-light)] border border-[var(--brass-border)] text-[12px] font-mono flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+            <div className="text-[var(--ink)] leading-snug">
+              Exhibit B has <strong>{totalAnalystsAcrossAll}</strong> analysts, but none currently match <strong>{selectedRegion}</strong>. If this planning sheet is dedicated to {selectedRegion}, you can assign all tasks to this region:
+            </div>
+            <button
+              type="button"
+              onClick={() => onAssignSheetRegion(selectedRegion)}
+              className="px-3.5 py-1.5 bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)] hover:bg-[var(--btn-primary-hover)] font-bold text-[11px] uppercase tracking-wider whitespace-nowrap cursor-pointer transition-colors shadow-2xs"
+            >
+              Set Sheet Region to {selectedRegion}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Week Selector and Date Window Controls */}
