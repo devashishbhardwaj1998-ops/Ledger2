@@ -1,20 +1,26 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Ledger – Timesheet Discrepancy Auditor
 
-# Run and deploy your AI Studio app
+Reconciles task-by-task timesheets between Data Pull master sheets and Daily
+planning sheets to audit categories and identify discrepancies. Runs entirely
+in the browser – uploaded files never leave your machine.
 
-This contains everything you need to run your app locally.
+## Run locally
 
-View your app in AI Studio: https://ai.studio/apps/d13113b8-b1f8-4579-bbd4-daae92652d5b
+```bash
+npm install
+npm run dev      # http://localhost:3000
+```
 
-## Run Locally
+## Build
 
-**Prerequisites:**  Node.js
+```bash
+npm run lint     # type check
+npm run build    # outputs to dist/
+```
 
+## Deploy (GitHub Pages)
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+Pushes to `main` build and deploy automatically via
+`.github/workflows/deploy.yml`.
+
+One-time setup: **Settings → Pages → Build and deployment → Source: GitHub Actions**.

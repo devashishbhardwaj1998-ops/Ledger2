@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { RawEmployeeRow, RawEmployerRow, WeekInfo, RegionInfo, RegionType } from '../types';
+import { RawEmployeeRow, RawEmployerRow, WeekInfo, RegionInfo, RegionType, DEFAULT_REGION_COUNTRY_CODES } from '../types';
 
 export const TYPE_MAP: Record<string, { axis: 'production' | 'review'; category: string }> = {
   'full':                   { axis: 'production', category: 'Full' },
@@ -513,7 +513,8 @@ export function normalizeEmployeeRows(aoa: (string | number)[][]): RawEmployeeRo
     userId: -1,
     first: -1,
     last: -1,
-    name: -1
+    name: -1,
+    country: -1
   };
 
   for (let i = 0; i < Math.min(10, aoa.length); i++) {
@@ -534,7 +535,8 @@ export function normalizeEmployeeRows(aoa: (string | number)[][]): RawEmployeeRo
         userId: row.findIndex((h) => h.includes('userid') || h === 'uid' || h === 'id'),
         first: row.findIndex((h) => h.includes('userfirstname') || h.includes('firstname') || h === 'first' || h === 'fname'),
         last: row.findIndex((h) => h.includes('userlastname') || h.includes('lastname') || h === 'last' || h === 'lname'),
-        name: row.findIndex((h) => h === 'name' || h.includes('username') || h.includes('employeename') || h === 'employee')
+        name: row.findIndex((h) => h === 'name' || h.includes('username') || h.includes('employeename') || h === 'employee'),
+        country: row.findIndex((h) => h === 'country' || h === 'countrycode' || h.includes('country'))
       };
       break;
     }
@@ -551,7 +553,8 @@ export function normalizeEmployeeRows(aoa: (string | number)[][]): RawEmployeeRo
       userId: header.findIndex((h) => h.includes('userid') || h.includes('user')),
       first: header.findIndex((h) => h.includes('first') || h.includes('fname')),
       last: header.findIndex((h) => h.includes('last') || h.includes('lname')),
-      name: header.findIndex((h) => h === 'name' || h.includes('username') || h.includes('employee'))
+      name: header.findIndex((h) => h === 'name' || h.includes('username') || h.includes('employee')),
+      country: header.findIndex((h) => h === 'country' || h === 'countrycode' || h.includes('country'))
     };
     headerRowIdx = 0;
   }
@@ -589,7 +592,8 @@ export function normalizeEmployeeRows(aoa: (string | number)[][]): RawEmployeeRo
       assetKey: normAsset(rawAsset),
       date: parsedDate,
       minutes,
-      type: idx.type >= 0 ? String(r[idx.type] || '').trim() : ''
+      type: idx.type >= 0 ? String(r[idx.type] || '').trim() : '',
+      country: idx.country >= 0 ? normalizeCountryCode(r[idx.country]) || undefined : undefined
     });
   }
   return rows;
@@ -839,6 +843,59 @@ export function normalizeEmployerRows(
     });
   }
   return rows;
+}
+
+const COUNTRY_ALIASES: Record<string, string> = {
+  // United States / United Kingdom
+  us: 'US', usa: 'US', unitedstates: 'US', unitedstatesofamerica: 'US', america: 'US',
+  gb: 'GB', uk: 'GB', gbr: 'GB', unitedkingdom: 'GB', greatbritain: 'GB', britain: 'GB',
+  england: 'GB', scotland: 'GB', wales: 'GB', northernireland: 'GB',
+  // France
+  fr: 'FR', fra: 'FR', france: 'FR',
+  // DACH
+  de: 'DE', deu: 'DE', ger: 'DE', germany: 'DE', deutschland: 'DE',
+  at: 'AT', aut: 'AT', austria: 'AT', oesterreich: 'AT', osterreich: 'AT',
+  ch: 'CH', che: 'CH', switzerland: 'CH', schweiz: 'CH', suisse: 'CH', svizzera: 'CH',
+  // Benelux
+  be: 'BE', bel: 'BE', belgium: 'BE', belgie: 'BE', belgique: 'BE',
+  nl: 'NL', nld: 'NL', netherlands: 'NL', thenetherlands: 'NL', holland: 'NL', nederland: 'NL',
+  lu: 'LU', lux: 'LU', luxembourg: 'LU', luxemburg: 'LU',
+  // Southern Europe
+  es: 'ES', esp: 'ES', spain: 'ES', espana: 'ES',
+  it: 'IT', ita: 'IT', italy: 'IT', italia: 'IT',
+  pt: 'PT', prt: 'PT', portugal: 'PT',
+  gr: 'GR', grc: 'GR', greece: 'GR', hellas: 'GR',
+  cy: 'CY', cyp: 'CY', cyprus: 'CY',
+  mt: 'MT', mlt: 'MT', malta: 'MT',
+  // NORCEE
+  pl: 'PL', pol: 'PL', poland: 'PL', polska: 'PL',
+  cz: 'CZ', cze: 'CZ', czechia: 'CZ', czechrepublic: 'CZ',
+  se: 'SE', swe: 'SE', sweden: 'SE', sverige: 'SE',
+  no: 'NO', nor: 'NO', norway: 'NO', norge: 'NO',
+  dk: 'DK', dnk: 'DK', denmark: 'DK', danmark: 'DK',
+  fi: 'FI', fin: 'FI', finland: 'FI', suomi: 'FI',
+  ee: 'EE', est: 'EE', estonia: 'EE',
+  lv: 'LV', lva: 'LV', latvia: 'LV',
+  lt: 'LT', ltu: 'LT', lithuania: 'LT',
+  sk: 'SK', svk: 'SK', slovakia: 'SK',
+  hu: 'HU', hun: 'HU', hungary: 'HU',
+  ro: 'RO', rou: 'RO', romania: 'RO',
+  bg: 'BG', bgr: 'BG', bulgaria: 'BG'
+};
+
+/**
+ * Normalises a country value (ISO-2 code, ISO-3 code, English/local name, or
+ * common alias) to an upper-case ISO 3166-1 alpha-2 code, e.g. "Germany" -> "DE",
+ * "GBR" -> "GB", "uk" -> "GB". Unrecognised values are returned trimmed and
+ * upper-cased so callers can still compare them against configured codes.
+ * Returns '' for empty input.
+ */
+export function normalizeCountryCode(val?: unknown): string {
+  if (val === null || val === undefined) return '';
+  const raw = String(val).trim();
+  if (!raw) return '';
+  const key = raw.toLowerCase().replace(/[^a-z]/g, '');
+  return COUNTRY_ALIASES[key] || raw.toUpperCase();
 }
 
 export function mapGeographyToRegion(geo?: string | null): RegionType | null {
@@ -1157,6 +1214,7 @@ export function getAvailableRegions(
     const data = regionData.get(name)!;
     return {
       name,
+      countryCodes: DEFAULT_REGION_COUNTRY_CODES[name] || [],
       analystCount: data.analysts.size,
       taskCount: data.tasks
     };
